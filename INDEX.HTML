@@ -1,0 +1,347 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ECHOES: The Realm of Synergy</title>
+<style>
+*{box-sizing:border-box;touch-action:manipulation}
+body{margin:0;overflow:hidden;font-family:system-ui,sans-serif;background:#91d7ef;color:white}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none}
+.panel{background:#10223bdb;border:1px solid #ffffff55;border-radius:14px;padding:10px;text-shadow:0 1px 3px #000}
+#brand{position:absolute;top:10px;left:10px;font-weight:900;letter-spacing:2px}
+#stats{position:absolute;top:62px;left:10px;font-size:12px;line-height:1.7}
+#objective{position:absolute;top:10px;right:10px;text-align:right;font-size:12px}
+#message{position:absolute;top:29%;left:50%;transform:translateX(-50%);background:#10223bdd;border-radius:20px;padding:10px 16px;text-align:center;font-size:13px;max-width:85%;white-space:normal}
+#stick{position:fixed;left:20px;bottom:25px;width:125px;height:125px;border-radius:50%;background:#10223b66;border:2px solid #ffffff77;z-index:2;touch-action:none}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#ffffffcc;border:2px solid white}
+#buttons{position:fixed;right:12px;bottom:25px;display:grid;grid-template-columns:repeat(2,75px);gap:8px;z-index:2}
+button{border:1px solid #ffffff77;border-radius:14px;background:#10223beF;color:white;font-weight:bold;padding:9px 4px;min-height:56px;font-size:11px}
+button:active{background:#167da0}
+#battle{display:none;position:fixed;inset:0;background:#081426dd;z-index:5;align-items:center;justify-content:center;padding:16px}
+#card{width:min(430px,100%);background:#142944;border:1px solid #8deaff88;border-radius:20px;padding:18px}
+#card h2{margin:0 0 8px}
+#log{min-height:42px;font-size:13px;color:#bcefff}
+.bar{height:9px;background:#526076;border-radius:8px;overflow:hidden;margin:5px 0 12px}
+.fill{height:100%;background:#63e6a2;width:100%}
+#enemyfill{background:#ffb65c}
+#battlebuttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#intro{position:fixed;inset:0;z-index:8;background:linear-gradient(145deg,#10233af5,#18485aeF);display:flex;align-items:center;justify-content:center;padding:22px}
+#introbox{text-align:center;max-width:420px;background:#081729dd;border:1px solid #a3e9ff66;border-radius:24px;padding:25px}
+#intro h1{font-size:clamp(27px,7vw,40px);line-height:1.05;margin:0}
+#intro h1 span{color:#7ee9ff}
+#intro p{font-size:14px;line-height:1.6}
+#start{background:#147da0;padding:14px 24px;font-size:14px}
+@media(max-height:520px){#stick{width:100px;height:100px}#knob{left:25px;top:25px}#buttons{bottom:10px}#stick{bottom:10px}}
+</style>
+</head>
+<body>
+<div id="intro"><div id="introbox">
+<h1>ECHOES<br><span>THE REALM OF SYNERGY</span></h1>
+<p>Explore a 3D world, discover mysterious Echoes, and become their partner!</p>
+<p>Use the left joystick to move. Explore the meadow and approach glowing creatures.</p>
+<button id="start">ENTER THE REALM</button>
+</div></div>
+
+<div id="hud">
+<div id="brand" class="panel">ECHOES <small> · 3D</small></div>
+<div id="stats" class="panel">Trainer: Nova<br>Synergy: <b id="synergy">0</b><br>Echoes bonded: <b id="count">0</b>/3</div>
+<div id="objective" class="panel">🌿 Explore the meadow<br>✨ Find wild Echoes</div>
+<div id="message">Welcome, Trainer!</div>
+</div>
+
+<div id="stick"><div id="knob"></div></div>
+<div id="buttons">
+<button id="explore">🧭<br>EXPLORE</button>
+<button id="call">✨<br>CALL ECHO</button>
+<button id="battlebtn">⚔️<br>BATTLE</button>
+<button id="jump">⬆️<br>HOP</button>
+</div>
+
+<div id="battle"><div id="card">
+<h2 id="enemyname">Wild Echo!</h2>
+<p>Your energy</p><div class="bar"><div id="herofill" class="fill"></div></div>
+<p>Wild Echo energy</p><div class="bar"><div id="enemyfill" class="fill"></div></div>
+<div id="log">Choose your move!</div>
+<div id="battlebuttons">
+<button id="strike">⚡ Synergy Strike</button>
+<button id="guard">🛡️ Guard</button>
+<button id="bond">💠 Try to Bond</button>
+<button id="leave">↩ Return</button>
+</div>
+</div></div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+const $=id=>document.getElementById(id);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91d7ef);
+scene.fog=new THREE.Fog(0x91d7ef,35,100);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,180);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xd8f6ff,0x537347,2));
+const sun=new THREE.DirectionalLight(0xfff0c8,2.3);
+sun.position.set(-20,35,15);
+sun.castShadow=true;
+scene.add(sun);
+
+const material=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:.8});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(170,170),material(0x65b878));
+ground.rotation.x=-Math.PI/2;
+ground.receiveShadow=true;
+scene.add(ground);
+
+const path=new THREE.Mesh(new THREE.PlaneGeometry(8,100),material(0xd8c397));
+path.rotation.x=-Math.PI/2;
+path.position.set(0,.015,-15);
+scene.add(path);
+
+function tree(x,z,s){
+ const g=new THREE.Group();
+ g.position.set(x,0,z);g.scale.setScalar(s);
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.2,.32,1.8,7),material(0x795139));
+ trunk.position.y=.9;trunk.castShadow=true;g.add(trunk);
+ for(let i=0;i<3;i++){
+  const leaves=new THREE.Mesh(new THREE.IcosahedronGeometry(.85-i*.12,1),material([0x32895a,0x3e9e65,0x4baf70][i]));
+  leaves.position.set((Math.random()-.5)*.4,1.9+i*.4,0);
+  leaves.castShadow=true;g.add(leaves);
+ }
+ scene.add(g);
+}
+for(let i=0;i<95;i++){
+ const x=(Math.random()-.5)*140,z=(Math.random()-.5)*140;
+ if(Math.abs(x)<7&&z<22&&z>-65)continue;
+ tree(x,z,.7+Math.random()*.65);
+}
+for(let i=0;i<100;i++){
+ const x=(Math.random()-.5)*120,z=(Math.random()-.5)*120;
+ const stem=new THREE.Mesh(new THREE.CylinderGeometry(.025,.03,.3,5),material(0x37884a));
+ stem.position.set(x,.15,z);scene.add(stem);
+ const flower=new THREE.Mesh(new THREE.SphereGeometry(.12,7,6),material([0xffdf73,0xff9dc9,0xd8baff][i%3]));
+ flower.position.set(x,.32,z);scene.add(flower);
+}
+
+function makeTrainer(){
+ const g=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.CapsuleGeometry(.32,.72,4,8),material(0x236ac0));
+ body.position.y=.95;body.castShadow=true;g.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.29,12,10),material(0xf0c59b));
+ head.position.y=1.65;g.add(head);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.3,10,8),material(0x26344a));
+ hair.scale.y=.55;hair.position.y=1.83;g.add(hair);
+ const pack=new THREE.Mesh(new THREE.BoxGeometry(.38,.42,.18),material(0xf3bd46));
+ pack.position.set(0,1,-.3);g.add(pack);
+ return g;
+}
+const player=makeTrainer();
+player.position.set(0,0,8);
+scene.add(player);
+
+function makeEcho(name,color,accent){
+ const g=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.SphereGeometry(.58,16,12),material(color));
+ body.scale.set(1,1.08,.9);body.position.y=.7;body.castShadow=true;g.add(body);
+ const belly=new THREE.Mesh(new THREE.SphereGeometry(.34,12,10),material(accent));
+ belly.scale.set(1,.85,.65);belly.position.set(0,.62,.3);g.add(belly);
+ for(const x of [-.2,.2]){
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.07,8,8),material(0x15243a));
+  eye.position.set(x,.86,.51);g.add(eye);
+ }
+ for(const x of [-.3,.3]){
+  const ear=new THREE.Mesh(new THREE.ConeGeometry(.17,.4,7),material(accent));
+  ear.position.set(x,1.28,0);ear.rotation.z=x*.8;g.add(ear);
+ }
+ if(name==='Flarefox'){
+  const tail=new THREE.Mesh(new THREE.ConeGeometry(.24,.7,8),material(accent));
+  tail.position.set(0,.55,-.7);tail.rotation.x=-.8;g.add(tail);
+ }
+ if(name==='Mossling'){
+  for(let i=0;i<3;i++){
+   const leaf=new THREE.Mesh(new THREE.ConeGeometry(.14,.4,6),material(0x80db7a));
+   leaf.position.set((i-1)*.18,1.35,0);leaf.rotation.z=(i-1)*-.35;g.add(leaf);
+  }
+ }
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.85,.035,6,24),material(0xaafff4));
+ ring.rotation.x=Math.PI/2;ring.position.y=.05;g.add(ring);
+ const light=new THREE.PointLight(color,1.4,5);light.position.y=1.3;g.add(light);
+ g.userData.kind=name;g.userData.light=light;
+ return g;
+}
+const wilds=[
+ {name:'Flarefox',mesh:makeEcho('Flarefox',0xff8956,0xffd269),hp:70,bonded:false,phase:1},
+ {name:'Mossling',mesh:makeEcho('Mossling',0x6acb79,0xb7f08c),hp:70,bonded:false,phase:3},
+ {name:'Bubblit',mesh:makeEcho('Bubblit',0x4dc9e8,0xc2f7ff),hp:70,bonded:false,phase:5}
+];
+wilds[0].mesh.position.set(-9,0,-12);
+wilds[1].mesh.position.set(12,0,-28);
+wilds[2].mesh.position.set(-16,0,-42);
+wilds.forEach(w=>scene.add(w.mesh));
+
+let synergy=0,bonded=0,current=null,heroHP=100,enemyHP=70,guarding=false,inBattle=false;
+function say(t){$('message').textContent=t;}
+function stats(){
+ $('synergy').textContent=synergy;
+ $('count').textContent=bonded;
+ const remaining=wilds.filter(w=>!w.bonded).length;
+ $('objective').innerHTML=remaining?'🌿 Find wild Echoes<br>✨ '+remaining+' remain':'🌟 All Echoes bonded!';
+}
+function nearest(max=7){
+ let result=null,dist=max;
+ for(const w of wilds){
+  if(w.bonded)continue;
+  const d=player.position.distanceTo(w.mesh.position);
+  if(d<dist){dist=d;result=w;}
+ }
+ return result;
+}
+function openBattle(w){
+ if(inBattle){return;}
+ if(!w){say('No wild Echo nearby! Explore the meadow.');return;}
+ current=w;inBattle=true;heroHP=100;enemyHP=w.hp;guarding=false;
+ $('enemyname').textContent='Wild '+w.name;
+ $('log').textContent=w.name+' is ready to battle!';
+ $('battle').style.display='flex';bars();
+}
+function bars(){
+ $('herofill').style.width=heroHP+'%';
+ $('enemyfill').style.width=(enemyHP/70*100)+'%';
+}
+function closeBattle(){
+ inBattle=false;$('battle').style.display='none';current=null;
+}
+function enemyTurn(){
+ if(!current||!inBattle)return;
+ const damage=guarding?4:9+Math.floor(Math.random()*9);
+ guarding=false;heroHP=Math.max(0,heroHP-damage);bars();
+ if(heroHP===0){
+  $('log').textContent='Your trainer needs a rest. Return to the meadow!';
+  setTimeout(closeBattle,1000);
+ }else{
+  $('log').textContent=current.name+' responds for '+damage+' energy!';
+ }
+}
+function win(){
+ if(!current)return;
+ const w=current;
+ $('log').textContent=w.name+' joins your journey! +15 synergy';
+ w.bonded=true;w.mesh.visible=false;w.hp=70;
+ bonded++;synergy+=15;stats();
+ setTimeout(()=>{closeBattle();say(w.name+' is now your companion!');},900);
+}
+$('strike').onclick=()=>{
+ if(!current)return;
+ enemyHP=Math.max(0,enemyHP-20-Math.floor(Math.random()*13));bars();
+ if(enemyHP===0){win();return;}
+ $('log').textContent='Your Synergy Strike hits!';
+ setTimeout(enemyTurn,400);
+};
+$('guard').onclick=()=>{
+ if(!current)return;
+ guarding=true;$('log').textContent='You prepare to guard.';
+ setTimeout(enemyTurn,400);
+};
+$('bond').onclick=()=>{
+ if(!current)return;
+ if(enemyHP<=40||Math.random()>.65){win();}
+ else{$('log').textContent=current.name+' resists! Weaken it first.';setTimeout(enemyTurn,400);}
+};
+$('leave').onclick=closeBattle;
+$('battlebtn').onclick=()=>openBattle(nearest(9));
+$('call').onclick=()=>{
+ const w=nearest(7);
+ if(!w){say('Find a glowing Echo and move closer!');return;}
+ openBattle(w);
+};
+$('explore').onclick=()=>{
+ const w=nearest(18);
+ say(w?w.name+' spotted! Move closer, then tap CALL ECHO.':'Explore the meadow to find glowing creatures!');
+};
+$('jump').onclick=()=>{if(!inBattle)hop=.65;};
+$('start').onclick=()=>{$('intro').style.display='none';say('Welcome to the Realm, Nova!');};
+
+let joyX=0,joyY=0,pointer=null,hop=0;
+const stick=$('stick'),knob=$('knob');
+function joy(e){
+ const r=stick.getBoundingClientRect();
+ let x=e.clientX-(r.left+r.width/2),y=e.clientY-(r.top+r.height/2);
+ const max=r.width*.32,len=Math.hypot(x,y);
+ if(len>max){x=x/len*max;y=y/len*max;}
+ joyX=x/max;joyY=y/max;
+ knob.style.transform=`translate(${x}px,${y}px)`;
+}
+function reset(){
+ joyX=0;joyY=0;pointer=null;
+ knob.style.transform='translate(0px,0px)';
+}
+stick.addEventListener('pointerdown',e=>{
+ pointer=e.pointerId;stick.setPointerCapture(pointer);joy(e);
+});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===pointer)joy(e);});
+stick.addEventListener('pointerup',reset);
+stick.addEventListener('pointercancel',reset);
+
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let last=performance.now();
+function animate(now){
+ requestAnimationFrame(animate);
+ const dt=Math.min((now-last)/1000,.04);last=now;
+ if(!inBattle){
+  let x=joyX,y=joyY;
+  if(keys.a||keys.arrowleft)x=-1;
+  if(keys.d||keys.arrowright)x=1;
+  if(keys.w||keys.arrowup)y=-1;
+  if(keys.s||keys.arrowdown)y=1;
+  const move=new THREE.Vector3(x,0,y);
+  if(move.lengthSq()>.02){
+   move.normalize();
+   player.position.x+=move.x*7*dt;
+   player.position.z+=move.z*7*dt;
+   player.rotation.y=Math.atan2(move.x,move.z);
+  }
+  player.position.x=clamp(player.position.x,-75,75);
+  player.position.z=clamp(player.position.z,-75,75);
+  if(hop>0){
+   player.position.y=Math.sin((.65-hop)/.65*Math.PI)*.8;
+   hop-=dt;if(hop<=0)player.position.y=0;
+  }
+  wilds.forEach(w=>{
+   if(!w.bonded){
+    w.mesh.position.y=.12+Math.sin(now*.002+w.phase)*.16;
+    w.mesh.rotation.y+=dt*.5;
+    w.mesh.userData.light.intensity=1+Math.sin(now*.004+w.phase)*.4;
+   }
+  });
+ }
+ const target=new THREE.Vector3(player.position.x,player.position.y+1,player.position.z);
+ const desired=new THREE.Vector3(player.position.x,player.position.y+5.5,player.position.z+9);
+ camera.position.lerp(desired,.09);
+ camera.lookAt(target);
+ renderer.render(scene,camera);
+}
+camera.position.set(0,7,18);
+camera.lookAt(player.position);
+requestAnimationFrame(animate);
+
+addEventListener('resize',()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+});
+stats();
+</script>
+</body>
+</html>
